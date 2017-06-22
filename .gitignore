@@ -1,0 +1,8 @@
+# OS junk files
+*.DS_Store
+
+# Output files
+*.png
+*.fits
+*.FITS
+*.txt
