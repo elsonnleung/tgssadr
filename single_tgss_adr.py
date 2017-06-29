@@ -33,13 +33,13 @@ for k in data:
 
 Ra = (float(RaJ[:2]) + float(RaJ[3:5])/60 + float(RaJ[6:])/3600)*15
 
-print 'The Ra is', Ra
+#print 'The Ra is', Ra
 
 if DecJ[0] == '-':
     Dec = (-float(DecJ[1:3]) - float(DecJ[4:6])/60 - float(DecJ[7:])/3600)
 else:
     Dec = (float(DecJ[1:3]) + float(DecJ[4:6])/60 + float(DecJ[7:])/3600)
-print 'The Dec is', Dec
+#print 'The Dec is', Dec
 
 #import header
 header = psr[0].header
@@ -86,7 +86,7 @@ beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me
 
 ########################## PLOT THE BEAM SIZE ###########################################################################
 
-ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*1.5, height = bmin/6.2*1.5, edgecolor='y', fc = 'None', lw = 0.1)
+ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2, height = bmin/6.2, edgecolor='y', fc = 'None', lw = 0.1)
 
 ax.add_patch(ellipse)
 ax.add_artist(circle)
@@ -111,7 +111,7 @@ dx = xv - xpix
 dy = yv - ypix
 
 #distance to source
-dist = (dx**2/(bmaj/6.2)**2) + (dy**2/ (bmin/6.2)**2) #remember to change it from arcsec to pixels
+dist = (dx**2/(bmaj/6.2/2)**2) + (dy**2/ (bmin/6.2/2)**2) #remember to change it from arcsec to pixels
 
 #find coordinates in which are within the radius of beam
 xIn_Circ, yIn_Circ = np.where(dist <= 1.)
@@ -119,7 +119,7 @@ Inner_CircInd = np.where(dist <= 1.)
 
 Inner_CircVals = image2D[Inner_CircInd]
 npixInner = len(Inner_CircVals)
-mu_inner = sum(Inner_CircVals)/npixInner
+mu_inner = np.mean(Inner_CircVals)
 
 #check which pixels are plotted
 plt.plot(yIn_Circ, xIn_Circ, 'r,')
@@ -134,7 +134,7 @@ Outer_CircInd = np.where(dist <= 50.0)
 
 Outer_CircVals = image2D[Outer_CircInd]
 npixOuter = len(Outer_CircVals)
-mu_outer = sum(Outer_CircVals)/npixOuter
+mu_outer = np.mean(Outer_CircVals)
 
 #plt.plot(yOut_Circ, xOut_Circ, 'g,')
 
@@ -145,15 +145,21 @@ mu_outer = sum(Outer_CircVals)/npixOuter
 
                   
 innerSizeRegion = npixInner/beam_area
-innerFlux = sum(Inner_CircVals)/npixInner * innerSizeRegion
+innerFlux = mu_inner * innerSizeRegion
 
 
 outerSizeRegion = npixOuter/beam_area
 outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/npixOuter * outerSizeRegion
 
-sourceFlux = innerFlux - outerFlux
-print innerFlux
-print max(Inner_CircVals)
+#sourceFlux = innerFlux - outerFlux
+#print sourceFlux
+print 'The integrated flux of the beam is', innerFlux #inner integrated flux
+print 'Max value without background is', max(Inner_CircVals) - outerFlux #max value - background
+
+if innerFlux <= max(Inner_CircVals)*1.1 and innerFlux >= max(Inner_CircVals)*0.9:
+    print 'The image is unresolved'
+else:
+    print 'The image is resolved'
 
 
 original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
