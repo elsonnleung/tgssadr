@@ -8,13 +8,20 @@ from matplotlib import pyplot as plt
 from astropy.io import fits
 from astropy import wcs
 from matplotlib.patches import Ellipse
+from average import average
 
 
-NameJ = 'PSRJ2021+3651.FITS'
+NameJ = 'PSRJ0218+4232.FITS'
 
 psr = fits.open(NameJ)
 
 data = np.genfromtxt('PSR_RA_DEC.txt', dtype = 'str', skip_header = 1)
+beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (10, 12)) #pulls out average beam sizes from catalogue
+
+#average beam sizes
+bmaj = average(beamsize)[0]
+bmin = average(beamsize)[1]
+
 
 #splitting the data array back into lists
 for k in data:
@@ -22,6 +29,7 @@ for k in data:
         RaJ = k[1]
         DecJ = k[2]
         Edot = k[3]
+
 
 Ra = (float(RaJ[:2]) + float(RaJ[3:5])/60 + float(RaJ[6:])/3600)*15
 
@@ -49,12 +57,6 @@ ra, dec, freq, stokes = [Ra, Dec, psr[0].header['crval2'], 1]
 #grab the xpixel and ypixel coordinate
 print 'The corresponding xcoordinate and ycoordinate is', (xpix, ypix)
 
-deg = 1.0
-beamsize = 25.0
-pix_per_degree = len(image_data[0][0][0])/deg #######there might be something wrong here######
-pix_per_arcSec = pix_per_degree/3600.0
-pix_per_beam = pix_per_arcSec * beamsize
-print 'Amount of pixels per beam is', pix_per_beam
 
 #create an array of all values
 vals = image_data.flatten()
@@ -74,8 +76,18 @@ plt.title('%s' %NameJ[:-5])
 #plt.plot([xpix],[ypix], 'yo', markerfacecolor = 'none',  markersize = 20, markeredgewidth = 0.1)
 ax=plt.gca()
 ax.invert_yaxis()
-circle = plt.Circle((50.0, int(y_size)-50.0), 50.0, edgecolor = 'g', fc = 'None', lw = 0.5)
+circle = plt.Circle((xpix, ypix), 50.0, edgecolor = 'g', fc = 'None', lw = 0.5)
 
+#########################################################################################################################
+    
+cdelt1 = psr[0].header['CDELT1']*3600 #pull this value from the header
+cdelt2 = psr[0].header['CDELT2']*3600 #pull this value from the header
+beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me    
+
+#########################################################################################################################
+    
+    
+   
 ###################################
 #### FOR INNER CIRCLE #############
 ###################################
@@ -92,17 +104,16 @@ xv, yv = np.meshgrid(x,y)
 dist = np.sqrt((xpix - xv)**2. + (ypix - yv)**2.)
 
 #find coordinates in which are within the radius of beam
-xIn_Circ, yIn_Circ = np.where(dist <= pix_per_beam*1.5)
-Inner_CircInd = np.where(dist <= pix_per_beam*1.5)
+xIn_Circ, yIn_Circ = np.where(dist <= beam_area)
+Inner_CircInd = np.where(dist <= beam_area)
 
 Inner_CircVals = image2D[Inner_CircInd]
-mu_inner = sum(Inner_CircVals)
-#Source_flux = sum(Inner_CircVals)/pix_per_beam ######or is it the area/ number of pixels???#######
+mu_inner = sum(Inner_CircVals)/len(Inner_CircVals)
 
 #check which pixels are plotted
 plt.plot(yIn_Circ, xIn_Circ, 'r,')
 
-"""
+
 ###################################
 #### OUTER INNER CIRCLE ###########
 ###################################
@@ -111,80 +122,49 @@ xOut_Circ , yOut_Circ = np.where(dist <= 50.0)
 Outer_CircInd = np.where(dist <= 50.0)
 
 Outer_CircVals = image2D[Outer_CircInd]
+mu_outer = sum(Outer_CircVals)/len(Outer_CircVals)
 
-#plt.plot(yOut_Circ, xOut_Circ, 'r,')
+#plt.plot(yOut_Circ, xOut_Circ, 'g,')
 
-#find the background flux
-BG_flux = (sum(Outer_CircVals)-sum(Inner_CircVals))/len(Outer_CircVals) #instead of area, divided by number of pixels
-print 'The background flux is', BG_flux
-
-if max(vals.flatten()) <= Source_flux*1.1 and max(vals.flatten()) >= Source_flux*0.9: #within 10% of the peak flux or integrated flux??
-    print 'The source is resolved. The source flux is', Source_flux, 'and the peak value is', max(vals.flatten())
-else:
-    print 'The source is unresolved. The source flux is', Source_flux, 'but the peak value is', max(vals.flatten())
-"""
-###################################
-#### OUTER INNER CIRCLE ###########
-###################################
-#distance to radius of outer circle
-dist_out = np.sqrt((50. - xv)**2 + (int(y_size) - 50.0 - yv)**2)
-
-#find coordinates in which are within the radius of the outer circle
-xOut_Circ, yOut_Circ = np.where(dist_out <= 50.0)
-Outer_CircInd = np.where(dist_out <= 50.0)
-Outer_CircVals = image2D[Outer_CircInd]
-
-#plotted just to check
-plt.plot(yOut_Circ, xOut_Circ, 'r,')
-
-
-"""
-#find the background flux
-BG_flux = (sum(Outer_CircVals)-sum(Inner_CircVals))/len(Outer_CircVals) #instead of area, divided by number of pixels
-print 'The background flux is', BG_flux
-
-#calibrated flux
-caliFlux = sum(Inner_CircVals) - len(Inner_CircVals)*BG_flux #background flux is negative so I'm effectively ADDING on the flux???
-#print caliFlux
-
-#check if image is resolved or unresolved
-if max(Inner_CircVals) <= caliFlux*1.1 and max(Inner_CircVals) >= caliFlux*0.9: #within 10% of the peak flux or integrated flux??
-    print 'The source is resolved. The calibrated flux is', caliFlux, 'and the peak value is', max(vals.flatten())
-else:
-    print 'The source is unresolved. The calibrated flux is', caliFlux, 'but the peak value is', max(vals.flatten())
-"""
-  
-#plot the circle
-if float(DecJ[:3]) > 19.0:
-    bmaj = 25.0
-    bmin = 25.0
-    ellipse = Ellipse(xy=(xpix, ypix), width = pix_per_beam, height = pix_per_beam , edgecolor='y', fc = 'None', lw = 0.1)
-    areaEllip = pix_per_beam*pix_per_beam*np.pi
-else:
-    bmaj = abs(pix_per_beam/np.cos(np.radians(Dec-19.0)))
-    bmin = 25.0
-    ellipse = Ellipse(xy=(xpix, ypix), width = bmaj, height = bmin, edgecolor='y', fc = 'None', lw = 0.1)
-    areaEllip = pix_per_beam*abs(pix_per_beam/np.cos(np.radians(Dec-19.0)))*np.pi
-
-ax.add_patch(ellipse)
-ax.add_artist(circle)
 
 ##################################
 ###### CALCULATIONS ##############
 ##################################
-cdelt1 = psr[0].header['CDELT1']*3600
-cdelt2 = psr[0].header['CDELT2']*3600
-beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2))
+mu_inner = sum(Inner_CircVals)/len(Inner_CircVals) #average in the inner circle
+mu_outer = sum(Outer_CircVals)/len(Outer_CircVals) #average in the outer circle
 
-InnerCirc_beam = len(Inner_CircVals)/beam_area
-OuterCirc_beam = len(Outer_CircVals)/beam_area
+                  
+#plot the circle
+if float(DecJ[:3]) > 19.0:
+    ellipse = Ellipse(xy=(xpix, ypix), width = beam_area, height = beam_area , edgecolor='y', fc = 'None', lw = 0.1)
+    areaEllip = bmaj*bmin*np.pi #these two lines, something wrong
+else:
+    ellipse = Ellipse(xy=(xpix, ypix), width = abs(beam_area/np.cos(np.radians(Dec-19.0))), height = beam_area, edgecolor='y', fc = 'None', lw = 0.1)
+    areaEllip = beam_area*abs(beam_area/np.cos(np.radians(Dec-19.0)))*np.pi
 
-InnerFlux = mu_inner * InnerCirc_beam
+ax.add_patch(ellipse)
+ax.add_artist(circle)
+
+InnerCirc_beam = len(Inner_CircVals)/beam_area #number of beams inside the INNER circle
+OuterCirc_beam = len(Outer_CircVals)/beam_area #number of beams inside the OUTER circle
+
+InnerFlux = mu_inner * InnerCirc_beam #inner beam flux: average of inner * number of beams inner
+OuterFlux = mu_outer * OuterCirc_beam #outer beam flux: average of outer * number of beams outer
+
+FluxDiff = OuterFlux - InnerFlux #difference in flux
+BeamDiff = OuterCirc_beam - InnerCirc_beam #difference in beams
+
+AnnulusBg = FluxDiff/ BeamDiff #the background value in the annulus
+
+bg = AnnulusBg * InnerCirc_beam #the background: Annulus background * number of beams inner
+
+SourceFlux = mu_inner * InnerCirc_beam - bg #source flux: average of inner * number of beams - background
+
+print SourceFlux
+print max(Inner_CircVals)
 
 
-
-
-#original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
+original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
 
 
 
