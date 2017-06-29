@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 from astropy.io import fits
 from astropy import wcs
 from matplotlib.patches import Ellipse
-from average import average
 
 
 NameJ = 'PSRJ0218+4232.FITS'
@@ -18,9 +17,10 @@ psr = fits.open(NameJ)
 data = np.genfromtxt('PSR_RA_DEC.txt', dtype = 'str', skip_header = 1)
 beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (10, 12)) #pulls out average beam sizes from catalogue
 
-#average beam sizes
-bmaj = average(beamsize)[0]
-bmin = average(beamsize)[1]
+
+##average beam sizes
+bmaj = np.mean(beamsize[:,0])
+bmin = np.mean(beamsize[:,1])
 
 
 #splitting the data array back into lists
@@ -84,6 +84,13 @@ cdelt1 = psr[0].header['CDELT1']*3600 #pull this value from the header
 cdelt2 = psr[0].header['CDELT2']*3600 #pull this value from the header
 beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me    
 
+########################## PLOT THE BEAM SIZE ###########################################################################
+
+ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*1.5, height = bmin/6.2*1.5, edgecolor='y', fc = 'None', lw = 0.1)
+
+ax.add_patch(ellipse)
+ax.add_artist(circle)
+
 #########################################################################################################################
     
     
@@ -100,15 +107,19 @@ xv, yv = np.meshgrid(x,y)
 #print xv
 #print yv
 
-#distances from the source
-dist = np.sqrt((xpix - xv)**2. + (ypix - yv)**2.)
+dx = xv - xpix
+dy = yv - ypix
+
+#distance to source
+dist = (dx**2/(bmaj/6.2)**2) + (dy**2/ (bmin/6.2)**2) #remember to change it from arcsec to pixels
 
 #find coordinates in which are within the radius of beam
-xIn_Circ, yIn_Circ = np.where(dist <= beam_area)
-Inner_CircInd = np.where(dist <= beam_area)
+xIn_Circ, yIn_Circ = np.where(dist <= 1.)
+Inner_CircInd = np.where(dist <= 1.)
 
 Inner_CircVals = image2D[Inner_CircInd]
-mu_inner = sum(Inner_CircVals)/len(Inner_CircVals)
+npixInner = len(Inner_CircVals)
+mu_inner = sum(Inner_CircVals)/npixInner
 
 #check which pixels are plotted
 plt.plot(yIn_Circ, xIn_Circ, 'r,')
@@ -122,7 +133,8 @@ xOut_Circ , yOut_Circ = np.where(dist <= 50.0)
 Outer_CircInd = np.where(dist <= 50.0)
 
 Outer_CircVals = image2D[Outer_CircInd]
-mu_outer = sum(Outer_CircVals)/len(Outer_CircVals)
+npixOuter = len(Outer_CircVals)
+mu_outer = sum(Outer_CircVals)/npixOuter
 
 #plt.plot(yOut_Circ, xOut_Circ, 'g,')
 
@@ -130,37 +142,17 @@ mu_outer = sum(Outer_CircVals)/len(Outer_CircVals)
 ##################################
 ###### CALCULATIONS ##############
 ##################################
-mu_inner = sum(Inner_CircVals)/len(Inner_CircVals) #average in the inner circle
-mu_outer = sum(Outer_CircVals)/len(Outer_CircVals) #average in the outer circle
 
                   
-#plot the circle
-if float(DecJ[:3]) > 19.0:
-    ellipse = Ellipse(xy=(xpix, ypix), width = beam_area, height = beam_area , edgecolor='y', fc = 'None', lw = 0.1)
-    areaEllip = bmaj*bmin*np.pi #these two lines, something wrong
-else:
-    ellipse = Ellipse(xy=(xpix, ypix), width = abs(beam_area/np.cos(np.radians(Dec-19.0))), height = beam_area, edgecolor='y', fc = 'None', lw = 0.1)
-    areaEllip = beam_area*abs(beam_area/np.cos(np.radians(Dec-19.0)))*np.pi
+innerSizeRegion = npixInner/beam_area
+innerFlux = sum(Inner_CircVals)/npixInner * innerSizeRegion
 
-ax.add_patch(ellipse)
-ax.add_artist(circle)
 
-InnerCirc_beam = len(Inner_CircVals)/beam_area #number of beams inside the INNER circle
-OuterCirc_beam = len(Outer_CircVals)/beam_area #number of beams inside the OUTER circle
+outerSizeRegion = npixOuter/beam_area
+outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/npixOuter * outerSizeRegion
 
-InnerFlux = mu_inner * InnerCirc_beam #inner beam flux: average of inner * number of beams inner
-OuterFlux = mu_outer * OuterCirc_beam #outer beam flux: average of outer * number of beams outer
-
-FluxDiff = OuterFlux - InnerFlux #difference in flux
-BeamDiff = OuterCirc_beam - InnerCirc_beam #difference in beams
-
-AnnulusBg = FluxDiff/ BeamDiff #the background value in the annulus
-
-bg = AnnulusBg * InnerCirc_beam #the background: Annulus background * number of beams inner
-
-SourceFlux = mu_inner * InnerCirc_beam - bg #source flux: average of inner * number of beams - background
-
-print SourceFlux
+sourceFlux = innerFlux - outerFlux
+print innerFlux
 print max(Inner_CircVals)
 
 
