@@ -19,9 +19,10 @@ beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (10, 12)) #pulls out average 
 
 
 ##average beam sizes
-bmaj = np.mean(beamsize[:,0])
-bmin = np.mean(beamsize[:,1])
+bmaj = np.median(beamsize[:,0]) #take median not mean###########
+bmin = np.median(beamsize[:,1])
 
+print bmaj,bmin
 
 #splitting the data array back into lists
 for k in data:
@@ -86,7 +87,7 @@ beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me
 
 ########################## PLOT THE BEAM SIZE ###########################################################################
 
-ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2, height = bmin/6.2, edgecolor='y', fc = 'None', lw = 0.1)
+ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*5, height = bmin/6.2*5, edgecolor='y', fc = 'None', lw = 0.1)
 
 ax.add_patch(ellipse)
 ax.add_artist(circle)
@@ -111,7 +112,7 @@ dx = xv - xpix
 dy = yv - ypix
 
 #distance to source
-dist = (dx**2/(bmaj/6.2/2)**2) + (dy**2/ (bmin/6.2/2)**2) #remember to change it from arcsec to pixels
+dist = (dx**2/(bmaj/6.2/2*5)**2) + (dy**2/ (bmin/6.2/2*5)**2) #remember to change it from arcsec to pixels
 
 #find coordinates in which are within the radius of beam
 xIn_Circ, yIn_Circ = np.where(dist <= 1.)
@@ -144,30 +145,27 @@ mu_outer = np.mean(Outer_CircVals)
 ##################################
 
                   
-innerSizeRegion = npixInner/beam_area
-innerFlux = mu_inner * innerSizeRegion
-
 
 outerSizeRegion = npixOuter/beam_area
-outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/npixOuter * outerSizeRegion
+outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/beam_area
+            
+innerSizeRegion = npixInner/beam_area
+innerFlux = (mu_inner) * innerSizeRegion
+
 
 #sourceFlux = innerFlux - outerFlux
 #print sourceFlux
 print 'The integrated flux of the beam is', innerFlux #inner integrated flux
-print 'Max value without background is', max(Inner_CircVals) - outerFlux #max value - background
+print 'Max value without background is', max(Inner_CircVals) #max value - background
 
 if innerFlux <= max(Inner_CircVals)*1.1 and innerFlux >= max(Inner_CircVals)*0.9:
     print 'The image is unresolved'
 else:
     print 'The image is resolved'
 
+#STOPPED AT PSRJ1954+2836
 
 original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
-
-
-
-
-
 
 
 
