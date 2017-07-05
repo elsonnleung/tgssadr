@@ -19,7 +19,7 @@ beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (10, 12)) #pulls out average 
 
 
 ##average beam sizes
-bmaj = np.median(beamsize[:,0]) #take median not mean###########
+bmaj = np.median(beamsize[:,0])
 bmin = np.median(beamsize[:,1])
 
 print bmaj,bmin
@@ -79,6 +79,8 @@ ax=plt.gca()
 ax.invert_yaxis()
 circle = plt.Circle((xpix, ypix), 50.0, edgecolor = 'g', fc = 'None', lw = 0.5)
 
+
+
 #########################################################################################################################
     
 cdelt1 = psr[0].header['CDELT1']*3600 #pull this value from the header
@@ -87,10 +89,12 @@ beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me
 
 ########################## PLOT THE BEAM SIZE ###########################################################################
 
-ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*5, height = bmin/6.2*5, edgecolor='y', fc = 'None', lw = 0.1)
+ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*5, height = bmin/6.2*5, edgecolor='y', fc = 'None', lw = 0.5)
 
 ax.add_patch(ellipse)
 ax.add_artist(circle)
+ax.legend([circle, ellipse], ['Region 2','Region 1'])
+
 
 #########################################################################################################################
     
@@ -123,7 +127,7 @@ npixInner = len(Inner_CircVals)
 mu_inner = np.mean(Inner_CircVals)
 
 #check which pixels are plotted
-plt.plot(yIn_Circ, xIn_Circ, 'r,')
+#plt.plot(yIn_Circ, xIn_Circ, 'r,')
 
 
 ###################################
@@ -145,7 +149,7 @@ mu_outer = np.mean(Outer_CircVals)
 ##################################
 
                   
-
+"""
 outerSizeRegion = npixOuter/beam_area
 outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/beam_area
             
@@ -162,8 +166,15 @@ if innerFlux <= max(Inner_CircVals)*1.1 and innerFlux >= max(Inner_CircVals)*0.9
     print 'The image is unresolved'
 else:
     print 'The image is resolved'
+"""
 
-#STOPPED AT PSRJ1954+2836
+source_beam_area = 1.1331 * ((beamsize[:,0][0]*beamsize[:,0][1])/abs(cdelt1*cdelt2))
+
+if beam_area < source_beam_area:
+    print "The source is resolved"
+else:
+    print 'The source is unresolved'
+
 
 original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
 
