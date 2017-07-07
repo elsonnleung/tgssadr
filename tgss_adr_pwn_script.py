@@ -17,6 +17,7 @@ from matplotlib.patches import Ellipse
 count = 0
 resolved = 0
 unresolved = 0
+shitcounter = 0
 resolvedList = []
 unresolvedList= []
 psrList = []
@@ -39,7 +40,7 @@ for psr in vispsrList:
             RaJ = k[1] #actual Ra
             DecJ = k[2] #actual Dec
             Edot = k[3] #Edot
-            
+    print '---------------', psr[:-5], '----------------------'      
 
             
     Ra = (float(RaJ[:2]) + float(RaJ[3:5])/60 + float(RaJ[6:])/3600)*15 #convert RaJ to degrees
@@ -50,9 +51,9 @@ for psr in vispsrList:
         Dec = (float(DecJ[1:3]) + float(DecJ[4:6])/60 + float(DecJ[7:])/3600) #if positive, add all
 #    print Dec
     
-    beamsize = np.loadtxt(psr[:-5]+'.txt', usecols = (10,12)) #extract the beam sizes
-    bmaj = np.median(beamsize[:,0]) #take the median of beamsizes
-    bmin = np.median(beamsize[:,1])
+    beamsize = np.loadtxt(psr[:-5]+'.txt', usecols = (0,10,12)) #extract the beam sizes
+    bmaj = np.median(beamsize[:,1]) #take the median of beamsizes
+    bmin = np.median(beamsize[:,2])
 
     pulsar = fits.open(psr)
     header = pulsar[0].header
@@ -155,26 +156,32 @@ for psr in vispsrList:
     total_flux = innermean * NbeamsInner
     
     
-    source_beam_area = 1.1331 * ((beamsize[:,0][0]*beamsize[:,0][1])/abs(cdelt1*cdelt2))
+    source_beam_area = 1.1331 * ((beamsize[:,1][0]*beamsize[:,2][0])/abs(cdelt1*cdelt2))
+#    print bmaj, bmin
+#    print beamsize[:,0][0], beamsize[:,0][1]
+#    print cdelt1
     print 'The beam area is', beam_area
     print 'The source beam area is', source_beam_area
     
     
     if beam_area < source_beam_area:
-        if total_flux <= max(Inner_CircVals):
+        if total_flux <= max(Inner_CircVals)*0.9: #condition to check if its within 10%
             print psr[:-5],"'s calculation is wrong, you're a piece of shit and you know it"
+            shitcounter += 1
         else:
             print psr[:-5]," is resolved and the integrated flux is therefore", total_flux,'mJy'
+            resolvedList.append(psr[:-5])
     else:
         print psr[:-5],' is unresolved and the flux is therefore', max(Inner_CircVals),'mJy'
-
+        unresolvedList.append(psr[:-5])
+        
     original.savefig('%s.png' %psr[:-5], dpi = 1500)
      
     count += 1 #just to keep track which file I'm on
 #    print 'We are on image number', count
 #    print 'The current pulsar is', psr[:-5]
 
-
+print 'shitcounter:', shitcounter
 
 
 

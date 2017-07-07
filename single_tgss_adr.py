@@ -10,7 +10,7 @@ from astropy import wcs
 from matplotlib.patches import Ellipse
 
 
-NameJ = 'PSRJ1747-2809.FITS'
+NameJ = 'PSRJ0218+4232.FITS'
 
 psr = fits.open(NameJ)
 
@@ -155,11 +155,16 @@ NbeamsInner = npixInner/beam_area
 total_flux = innermean * NbeamsInner
 
 
-source_beam_area = 1.1331 * ((beamsize[:,0][1]*beamsize[:,0][2])/abs(cdelt1*cdelt2))
+source_beam_area = 1.1331 * ((beamsize[:,1][0]*beamsize[:,2][0])/abs(cdelt1*cdelt2))
+print bmaj, bmin
+print beamsize[:,1][0], beamsize[:,2][0]
+print cdelt1
+print 'The beam area is', beam_area
+print 'The source beam area is', source_beam_area
 
 
 if beam_area < source_beam_area:
-    if total_flux <= max(Inner_CircVals):
+    if total_flux <= max(Inner_CircVals)*0.9: #condition so that its within 10%
         print "The calculation is wrong, you're a piece of shit and you know it"
     else:
         print "The source is resolved and the integrated flux is therefore", total_flux
@@ -168,6 +173,7 @@ else:
 
 
 original.savefig('%s.png' %NameJ[:-5], dpi = 1500)
+
 
 
 
