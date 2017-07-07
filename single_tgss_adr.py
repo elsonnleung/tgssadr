@@ -10,7 +10,7 @@ from astropy import wcs
 from matplotlib.patches import Ellipse
 
 
-NameJ = 'PSRJ0218+4232.FITS'
+NameJ = 'PSRJ1747-2809.FITS'
 
 psr = fits.open(NameJ)
 
@@ -140,7 +140,7 @@ Outer_CircInd = np.where(dist <= 50.0)
 
 Outer_CircVals = image2D[Outer_CircInd]
 npixOuter = len(Outer_CircVals) - npixInner
-mu_outer = np.mean(Outer_CircVals)
+mu_outer = (sum(Outer_CircVals)-sum(Inner_CircVals))/npixOuter
 #plt.plot(yOut_Circ, xOut_Circ, 'g,')
 
 ###################################
@@ -148,7 +148,7 @@ mu_outer = np.mean(Outer_CircVals)
 ###################################
 
 innersum = sum(Inner_CircVals)
-innermean = innersum - abs(mu_outer)
+innermean = mu_inner - abs(mu_outer)
 innermax = max(Inner_CircVals) - abs(mu_outer)
 
 NbeamsInner = npixInner/beam_area
@@ -158,7 +158,7 @@ total_flux = innermean * NbeamsInner
 source_beam_area = 1.1331 * ((beamsize[:,0][1]*beamsize[:,0][2])/abs(cdelt1*cdelt2))
 
 
-if beam_area > source_beam_area:
+if beam_area < source_beam_area:
     if total_flux <= max(Inner_CircVals):
         print "The calculation is wrong, you're a piece of shit and you know it"
     else:

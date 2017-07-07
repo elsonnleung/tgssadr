@@ -20,7 +20,7 @@ unresolved = 0
 resolvedList = []
 unresolvedList= []
 psrList = []
-os.chdir('C:\Users\user\Google Drive\PWN research\PHY479 - PWN research\TGSS ADR')
+os.chdir('/Users/elsonleung/Google Drive/PWN research/PHY479 - PWN research/TGSS ADR')
 for files in glob.glob('*.FITS'):
     psrList.append(files)
     
@@ -99,6 +99,8 @@ for psr in vispsrList:
     ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*5, height = bmin/6.2*5, edgecolor='y', fc = 'None', lw = 0.5)
     
     ax.add_patch(ellipse)
+    ax.add_artist(circle)
+    ax.legend([circle, ellipse], ['Region 2','Region 1'])
 
     ###################################
     #### FOR INNER CIRCLE #############
@@ -139,14 +141,14 @@ for psr in vispsrList:
     
     Outer_CircVals = image2D[Outer_CircInd]
     npixOuter = len(Outer_CircVals) - npixInner
-    mu_outer = np.mean(Outer_CircVals)
+    mu_outer = (sum(Outer_CircVals)-sum(Inner_CircVals))/npixOuter
     
     ###################################
     #########CALCULATIONS##############
     ###################################
     
     innersum = sum(Inner_CircVals)
-    innermean = innersum - abs(mu_outer)
+    innermean = mu_inner - abs(mu_outer)
     innermax = max(Inner_CircVals) - abs(mu_outer)
     
     NbeamsInner = npixInner/beam_area
@@ -154,19 +156,18 @@ for psr in vispsrList:
     
     
     source_beam_area = 1.1331 * ((beamsize[:,0][0]*beamsize[:,0][1])/abs(cdelt1*cdelt2))
+    print 'The beam area is', beam_area
+    print 'The source beam area is', source_beam_area
     
     
     if beam_area < source_beam_area:
         if total_flux <= max(Inner_CircVals):
-            print "The calculation is wrong, you're a piece of shit and you know it"
+            print psr[:-5],"'s calculation is wrong, you're a piece of shit and you know it"
         else:
-            print psr[:-5], " is resolved and the integrated flux is therefore", total_flux, 'mJy'
+            print psr[:-5]," is resolved and the integrated flux is therefore", total_flux,'mJy'
     else:
-        print psr[:-5], ' is unresolved and the flux is therefore', max(Inner_CircVals), 'mJy'
+        print psr[:-5],' is unresolved and the flux is therefore', max(Inner_CircVals),'mJy'
 
-
-    ax.add_patch(ellipse)
-    ax.add_artist(circle)
     original.savefig('%s.png' %psr[:-5], dpi = 1500)
      
     count += 1 #just to keep track which file I'm on
