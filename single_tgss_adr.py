@@ -15,14 +15,15 @@ NameJ = 'PSRJ0218+4232.FITS'
 psr = fits.open(NameJ)
 
 data = np.genfromtxt('PSR_RA_DEC.txt', dtype = 'str', skip_header = 1)
-beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (10, 12)) #pulls out average beam sizes from catalogue
+beamsize = np.loadtxt(NameJ[:-5]+'.txt', usecols = (0, 10, 12)) #pulls out average beam sizes from catalogue
 
+print 'The beamsized used is', beamsize[:,0][0], 'arcminutes away'
 
 ##average beam sizes
-bmaj = np.median(beamsize[:,0])
-bmin = np.median(beamsize[:,1])
+bmaj = np.median(beamsize[:,1])
+bmin = np.median(beamsize[:,2])
 
-print bmaj,bmin
+#print bmaj,bmin
 
 #splitting the data array back into lists
 for k in data:
@@ -138,42 +139,32 @@ xOut_Circ , yOut_Circ = np.where(dist <= 50.0)
 Outer_CircInd = np.where(dist <= 50.0)
 
 Outer_CircVals = image2D[Outer_CircInd]
-npixOuter = len(Outer_CircVals)
+npixOuter = len(Outer_CircVals) - npixInner
 mu_outer = np.mean(Outer_CircVals)
-
 #plt.plot(yOut_Circ, xOut_Circ, 'g,')
 
+###################################
+#########CALCULATIONS##############
+###################################
 
-##################################
-###### CALCULATIONS ##############
-##################################
+innersum = sum(Inner_CircVals)
+innermean = innersum - abs(mu_outer)
+innermax = max(Inner_CircVals) - abs(mu_outer)
 
-                  
-"""
-outerSizeRegion = npixOuter/beam_area
-outerFlux = (sum(Outer_CircVals)-sum(Inner_CircVals))/beam_area
-            
-innerSizeRegion = npixInner/beam_area
-innerFlux = (mu_inner) * innerSizeRegion
+NbeamsInner = npixInner/beam_area
+total_flux = innermean * NbeamsInner
 
 
-#sourceFlux = innerFlux - outerFlux
-#print sourceFlux
-print 'The integrated flux of the beam is', innerFlux #inner integrated flux
-print 'Max value without background is', max(Inner_CircVals) #max value - background
+source_beam_area = 1.1331 * ((beamsize[:,0][1]*beamsize[:,0][2])/abs(cdelt1*cdelt2))
 
-if innerFlux <= max(Inner_CircVals)*1.1 and innerFlux >= max(Inner_CircVals)*0.9:
-    print 'The image is unresolved'
+
+if beam_area > source_beam_area:
+    if total_flux <= max(Inner_CircVals):
+        print "The calculation is wrong, you're a piece of shit and you know it"
+    else:
+        print "The source is resolved and the integrated flux is therefore", total_flux
 else:
-    print 'The image is resolved'
-"""
-
-source_beam_area = 1.1331 * ((beamsize[:,0][0]*beamsize[:,0][1])/abs(cdelt1*cdelt2))
-
-if beam_area < source_beam_area:
-    print "The source is resolved"
-else:
-    print 'The source is unresolved'
+    print 'The source is unresolved and the flux is therefore', max(Inner_CircVals)
 
 
 original.savefig('%s.png' %NameJ[:-5], dpi = 1500)

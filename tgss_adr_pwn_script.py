@@ -20,19 +20,28 @@ unresolved = 0
 resolvedList = []
 unresolvedList= []
 psrList = []
-os.chdir('/Users/elsonleung/Google Drive/PWN research/PHY479 - PWN research/TGSS ADR')
+os.chdir('C:\Users\user\Google Drive\PWN research\PHY479 - PWN research\TGSS ADR')
 for files in glob.glob('*.FITS'):
     psrList.append(files)
     
 data = np.genfromtxt('PSR_RA_DEC.txt', dtype = 'str', skip_header = 1)
+nameJ = data[:,0]
 
+visiblepsr = np.genfromtxt('visiblepsr.txt', dtype = 'str')
+vispsrList = []
 
-for psr in psrList:
+for i in visiblepsr:
+    vispsrList.append(i)
+
+for psr in vispsrList:
     for k in data:
         if k[0] == psr[3:-5]: #do this to get rid of PSR and .txt
             RaJ = k[1] #actual Ra
             DecJ = k[2] #actual Dec
             Edot = k[3] #Edot
+            
+
+            
     Ra = (float(RaJ[:2]) + float(RaJ[3:5])/60 + float(RaJ[6:])/3600)*15 #convert RaJ to degrees
 #    print Ra
     if DecJ[0] == '-': #convert DecJ to degrees
@@ -40,12 +49,15 @@ for psr in psrList:
     else:
         Dec = (float(DecJ[1:3]) + float(DecJ[4:6])/60 + float(DecJ[7:])/3600) #if positive, add all
 #    print Dec
+    
+    beamsize = np.loadtxt(psr[:-5]+'.txt', usecols = (10,12)) #extract the beam sizes
+    bmaj = np.median(beamsize[:,0]) #take the median of beamsizes
+    bmin = np.median(beamsize[:,1])
 
-
-    hdu_list = fits.open(psr)
-    header = hdu_list[0].header
+    pulsar = fits.open(psr)
+    header = pulsar[0].header
     #grab image data
-    image_data = hdu_list[0].data
+    image_data = pulsar[0].data
                          
     #convert the 4D array to 2D to make things simpler
     image2D = image_data[0][0]
@@ -53,17 +65,9 @@ for psr in psrList:
     
     mywcs = wcs.WCS(header)
     #convert ra and dec to pixels on the image
-    ra, dec, freq, stokes = [Ra, Dec, hdu_list[0].header['crval2'], 1]
+    ra, dec, freq, stokes = [Ra, Dec, pulsar[0].header['crval2'], 1]
     (xpix,ypix, freq, stokes), = mywcs.wcs_world2pix([[ra,dec, freq, stokes]], 0)
 
-#    print xpix, ypix
-
-    #convert degrees into arcsec
-    deg = 1.0
-    beamsize = 25.0
-    pix_per_degree = len(image_data[0][0][0])/deg
-    pix_per_arcSec = pix_per_degree/3600.0
-    pix_per_beam = pix_per_arcSec * beamsize
 
 #create an array of all values
     vals = image_data.flatten()
@@ -82,7 +86,19 @@ for psr in psrList:
     #plt.plot([xpix],[ypix], 'yo', markerfacecolor = 'none',  markersize = 20, markeredgewidth = 0.1)
     ax=plt.gca()
     ax.invert_yaxis()
-    circle = plt.Circle((50.0, int(y_size)-50.0), 50.0, edgecolor = 'g', fc = 'None', lw = 0.5)
+    circle = plt.Circle((xpix,ypix), 50.0, edgecolor = 'g', fc = 'None', lw = 0.5)
+    
+    #########################################################################################################################
+    
+    cdelt1 = pulsar[0].header['CDELT1']*3600 #pull this value from the header
+    cdelt2 = pulsar[0].header['CDELT2']*3600 #pull this value from the header
+    beam_area = 1.1331 * ((bmaj*bmin)/abs(cdelt1*cdelt2)) #the equation given to me    
+    
+    ########################## PLOT THE BEAM SIZE ###########################################################################
+    
+    ellipse = Ellipse(xy=(xpix, ypix), width = bmaj/6.2*5, height = bmin/6.2*5, edgecolor='y', fc = 'None', lw = 0.5)
+    
+    ax.add_patch(ellipse)
 
     ###################################
     #### FOR INNER CIRCLE #############
@@ -96,20 +112,24 @@ for psr in psrList:
     #print xv
     #print yv
     
-    #distances from the source
-    dist = np.sqrt((xpix - xv)**2. + (ypix - yv)**2.)
+    dx = xv - xpix
+    dy = yv - ypix
+    
+    #distance to source
+    dist = (dx**2/(bmaj/6.2/2*5)**2) + (dy**2/ (bmin/6.2/2*5)**2) #remember to change it from arcsec to pixels
     
     #find coordinates in which are within the radius of beam
-    xIn_Circ, yIn_Circ = np.where(dist <= pix_per_beam*1.5)
-    Inner_CircInd = np.where(dist <= pix_per_beam*1.5)
+    xIn_Circ, yIn_Circ = np.where(dist <= 1.)
+    Inner_CircInd = np.where(dist <= 1.)
     
     Inner_CircVals = image2D[Inner_CircInd]
-    Source_flux = sum(Inner_CircVals)/pix_per_beam ######or is it the area/ number of pixels???#######
+    npixInner = len(Inner_CircVals)
+    mu_inner = np.mean(Inner_CircVals)
     
     #check which pixels are plotted
-    plt.plot(yIn_Circ, xIn_Circ, 'r,')
+    #plt.plot(yIn_Circ, xIn_Circ, 'r,')
     
-    """
+
     ###################################
     #### OUTER INNER CIRCLE ###########
     ###################################
@@ -118,67 +138,41 @@ for psr in psrList:
     Outer_CircInd = np.where(dist <= 50.0)
     
     Outer_CircVals = image2D[Outer_CircInd]
+    npixOuter = len(Outer_CircVals) - npixInner
+    mu_outer = np.mean(Outer_CircVals)
     
-    #plt.plot(yOut_Circ, xOut_Circ, 'r,')
-    
-    #find the background flux
-    BG_flux = (sum(Outer_CircVals)-sum(Inner_CircVals))/len(Outer_CircVals) #instead of area, divided by number of pixels
-    print 'The background flux is', BG_flux
-    
-    if max(vals.flatten()) <= Source_flux*1.1 and max(vals.flatten()) >= Source_flux*0.9: #within 10% of the peak flux or integrated flux??
-        print 'The source is resolved. The source flux is', Source_flux, 'and the peak value is', max(vals.flatten())
-    else:
-        print 'The source is unresolved. The source flux is', Source_flux, 'but the peak value is', max(vals.flatten())
-    """
     ###################################
-    #### OUTER INNER CIRCLE ###########
+    #########CALCULATIONS##############
     ###################################
-    #distance to radius of outer circle
-    dist_out = np.sqrt((50. - xv)**2 + (int(y_size) - 50.0 - yv)**2)
     
-    #find coordinates in which are within the radius of the outer circle
-    xOut_Circ, yOut_Circ = np.where(dist_out <= 50.0)
-    Outer_CircInd = np.where(dist_out <= 50.0)
-    Outer_CircVals = image2D[Outer_CircInd]
+    innersum = sum(Inner_CircVals)
+    innermean = innersum - abs(mu_outer)
+    innermax = max(Inner_CircVals) - abs(mu_outer)
     
-    #plotted just to check
-    plt.plot(yOut_Circ, xOut_Circ, 'r,')
+    NbeamsInner = npixInner/beam_area
+    total_flux = innermean * NbeamsInner
     
-    #find the background flux
-    BG_flux = (sum(Outer_CircVals)-sum(Inner_CircVals))/len(Outer_CircVals) #instead of area, divided by number of pixels
-    print 'The background flux is', BG_flux
     
-    #calibrated flux
-    caliFlux = sum(Inner_CircVals) - len(Inner_CircVals)*BG_flux #background flux is negative so I'm effectively ADDING on the flux???
-    #print caliFlux
+    source_beam_area = 1.1331 * ((beamsize[:,0][0]*beamsize[:,0][1])/abs(cdelt1*cdelt2))
     
-    #check if image is resolved or unresolved
-    if max(vals.flatten()) <= caliFlux*1.1 and max(vals.flatten()) >= caliFlux*0.9: #within 10% of the peak flux or integrated flux??
-        print 'The source is resolved. The calibrated flux is', caliFlux, 'and the peak value is', max(vals.flatten())
-        resolved += 1
-        print 'resolved:', resolved
-        print 'unresolved', unresolved
-        resolvedList.append(psr[:-5])
+    
+    if beam_area < source_beam_area:
+        if total_flux <= max(Inner_CircVals):
+            print "The calculation is wrong, you're a piece of shit and you know it"
+        else:
+            print psr[:-5], " is resolved and the integrated flux is therefore", total_flux, 'mJy'
     else:
-        print 'The source is unresolved. The calibrated flux is', caliFlux, 'but the peak value is', max(vals.flatten())
-        unresolved += 1
-        print 'resolved:', resolved
-        print 'unresolved:', unresolved
-        unresolvedList.append(psr[:-5])
+        print psr[:-5], ' is unresolved and the flux is therefore', max(Inner_CircVals), 'mJy'
 
-    if float(DecJ[:3]) > 19.0:
-        ellipse = Ellipse(xy=(xpix, ypix), width = pix_per_beam, height = pix_per_beam , edgecolor='y', fc = 'None', lw = 0.1)
-        areaEllip = pix_per_beam*pix_per_beam*np.pi
-    else:
-        ellipse = Ellipse(xy=(xpix, ypix), width = pix_per_beam, height = abs(pix_per_beam/np.cos(np.radians(Dec-19.0))), edgecolor='y', fc = 'None', lw = 0.1)
-        areaEllip = pix_per_beam*abs(pix_per_beam/np.cos(np.radians(Dec-19.0)))*np.pi
+
     ax.add_patch(ellipse)
     ax.add_artist(circle)
     original.savefig('%s.png' %psr[:-5], dpi = 1500)
      
     count += 1 #just to keep track which file I'm on
-    print 'We are on image number', count
-    print 'The current pulsar is', psr[:-5]
+#    print 'We are on image number', count
+#    print 'The current pulsar is', psr[:-5]
+
 
 
 
